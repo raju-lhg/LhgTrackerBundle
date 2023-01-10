@@ -1,7 +1,7 @@
 {
     "name": "keleo/demo-plugin",
     "description": "LhgTrackerBundle is a custom plugin for Light House Graphics",
-    "homepage": "https://www.kimai.org/store/demo-bundle.html",
+    "homepage": "https://github.com/raju-lhg/LhgTrackerBundle",
     "type": "kimai-plugin",
     "version": "0.1",
     "keywords": [
@@ -12,8 +12,8 @@
     "authors": [
         {
             "name": "Raju Rayhan",
-            "email": "info@keleo.de",
-            "homepage": "https://www.keleo.de"
+            "email": "devraju.bd@gmail.com",
+            "homepage": "https://github.com/raju-lhg/LhgTrackerBundle"
         }
     ],
     "extra": {
