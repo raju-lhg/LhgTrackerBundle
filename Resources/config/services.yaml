@@ -1,0 +1,16 @@
+services:
+    _defaults:
+        autowire: true
+        autoconfigure: true
+        public: false
+        bind:
+
+    KimaiPlugin\LhgTrackerBundle\:
+        resource: '../../*'
+        exclude: '../../{Resources}'
+    
+    KimaiPlugin\LhgTrackerBundle\Controller\:
+        resource: '../../Controller'
+        tags: ['controller.service_arguments']
+        arguments:
+            $dataDirectory: "%kimai.data_dir%"

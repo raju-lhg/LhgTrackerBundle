@@ -1,0 +1,62 @@
+{
+    "name": "keleo/demo-plugin",
+    "description": "LhgTrackerBundle is a custom plugin for Light House Graphics",
+    "homepage": "https://www.kimai.org/store/demo-bundle.html",
+    "type": "kimai-plugin",
+    "version": "0.1",
+    "keywords": [
+        "kimai",
+        "kimai-plugin"
+    ],
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Raju Rayhan",
+            "email": "info@keleo.de",
+            "homepage": "https://www.keleo.de"
+        }
+    ],
+    "extra": {
+        "kimai": {
+            "require": "1.11",
+            "name": "LhgTrackerBundle"
+        }
+    },
+    "autoload": {
+        "psr-4": {
+            "KimaiPlugin\\LhgTrackerBundle\\": ""
+        }
+    },
+    "config": {
+        "allow-plugins": {
+            "composer/package-versions-deprecated": false,
+            "symfony/flex": false
+        },
+        "platform": {
+            "php": "7.3"
+        },
+        "preferred-install": {
+            "*": "dist"
+        },
+        "sort-packages": true
+    },
+    "scripts": {
+        "codestyle": "vendor/bin/php-cs-fixer fix --dry-run --verbose --show-progress=none",
+        "codestyle-fix": "vendor/bin/php-cs-fixer fix",
+        "codestyle-check": "vendor/bin/php-cs-fixer fix --dry-run --verbose --using-cache=no --show-progress=none --format=checkstyle",
+        "phpstan": "vendor/bin/phpstan analyse . --configuration=phpstan.neon --level=7",
+        "linting": [
+            "composer validate",
+            "@codestyle-check",
+            "@phpstan"
+        ]
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.0",
+        "kevinpapst/kimai2": "^1.11",
+        "phpstan/phpstan": "^1.0",
+        "phpstan/phpstan-symfony": "^1.0",
+        "symfony/console": "^4.0",
+        "symfony/event-dispatcher": "^4.0"
+    }
+}
