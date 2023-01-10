@@ -41,9 +41,7 @@ class TerminateActiveTrack extends Command
         $this->io->writeln("Terminating all active Tracks ...");
         $activeEntries = $this->time_sheet_repository->getActiveEntries();
         foreach ($activeEntries as $key => $timesheet) {
-            $this->logger->info([
-                $timesheet->getId() => $timesheet
-            ]);
+            $this->io->writeln($timesheet->getUser()->getDisplayName() ." => ". $timesheet->getDescription());
         }
         
     }
