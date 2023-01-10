@@ -37,7 +37,8 @@ class TerminateActiveTrack extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $this->io    = new SymfonyStyle($input, $output);
-        $this->io->writeln("Hello from LHGTracker Auto Terminate Command");
+        $this->io->writeln("<bg=green>********************************** LHGTracker Auto Terminator **********************************************</>");
+        $this->io->writeln("<bg=green>============================================================================================================</>");
         $this->terminate_active_records();
         return 0;
     }
