@@ -46,8 +46,10 @@ class TerminateActiveTrack extends Command
     private function terminate_active_records(){
         $this->io->writeln("Terminating all active Tracks ...");
         $activeEntries = $this->time_sheet_repository->getActiveEntries();
+        $index = 0;
         foreach ($activeEntries as $key => $timesheet) {
-            $consoleOutput = "<info>".$timesheet->getUser()->getDisplayName() ." => " . $timesheet->getProject()->getName(). " => " .  $timesheet->getDescription()."</info>";
+            $index++;
+            $consoleOutput = $index."# <info>".$timesheet->getUser()->getDisplayName() ." => " . $timesheet->getProject()->getName(). " => " .  $timesheet->getDescription()."</info> </br>";
             $this->io->writeln($consoleOutput); 
             // Checks if project has Budget type set. 
             if(Utils::getProjectBudgetType($timesheet->getProject())){
