@@ -11,6 +11,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use App\Utils\LocaleFormatter;
 use Psr\Log\LoggerInterface;
+use KimaiPlugin\RecurringBudgetBundle\Utils\Utils;
 
 class TerminateActiveTrack extends Command
 {
@@ -45,9 +46,17 @@ class TerminateActiveTrack extends Command
         $this->io->writeln("Terminating all active Tracks ...");
         $activeEntries = $this->time_sheet_repository->getActiveEntries();
         foreach ($activeEntries as $key => $timesheet) {
-            $this->io->writeln($timesheet->getUser()->getDisplayName() ." => ". $timesheet->getDescription());
-            // ToDo: Check for Budget and Terminate
-            // $this->time_sheet_service->stopTimesheet($timesheet);
+            $this->io->writeln($timesheet->getUser()->getDisplayName() ." => ". $timesheet->getDescription()); 
+            // Checks if project has Budget type set. 
+            if(Utils::getProjectBudgetType($timesheet->getProject())){
+                // ToDo: 
+                // get ProjectBudgetInterval
+                // get ProjectBudgetNextIntervalBeginDate
+                // get CalculateTotalTimeAndAmountTrackedInCurrentInterval
+                // Terminate If Budget Reached or Exceeds
+                // $this->time_sheet_service->stopTimesheet($timesheet);
+            }
+            
         }
         
     }
