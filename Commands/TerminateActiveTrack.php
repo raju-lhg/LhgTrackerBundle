@@ -10,6 +10,7 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use App\Utils\LocaleFormatter;
+use KimaiPlugin\RecurringBudgetBundle\EventSubscriber\ProjectSubscriber;
 use Psr\Log\LoggerInterface;
 use KimaiPlugin\RecurringBudgetBundle\Utils\Utils;
 
@@ -52,14 +53,54 @@ class TerminateActiveTrack extends Command
             $consoleOutput = $index."# <info>".$timesheet->getUser()->getDisplayName() ." => " . $timesheet->getProject()->getName(). " => " .  $timesheet->getDescription()."</info> </br>";
             $this->io->writeln($consoleOutput); 
             // Checks if project has Budget type set. 
-            if(Utils::getProjectBudgetType($timesheet->getProject())){
-                // ToDo: 
-                // get ProjectBudgetInterval
-                // get ProjectBudgetNextIntervalBeginDate
-                // get CalculateTotalTimeAndAmountTrackedInCurrentInterval
-                // Terminate If Budget Reached or Exceeds
-                // $this->time_sheet_service->stopTimesheet($timesheet);
+            // if(Utils::getProjectBudgetType($timesheet->getProject())){
+            //     // ToDo: 
+            //     // get ProjectBudgetInterval
+            //     $projectBudgetInterval = Utils::getProjectBudgetInterval($timesheet->getProject());
+            //     // get ProjectBudgetNextIntervalBeginDate
+            //     $ProjectBudgetNextIntervalBeginDate = Utils::getProjectBudgetNextIntervalBeginDate($timesheet->getProject());
+            //     // get CalculateTotalTimeAndAmountTrackedInCurrentInterval
+            //     // Terminate If Budget Reached or Exceeds
+            //     // $this->time_sheet_service->stopTimesheet($timesheet);
+            // }
+            $project = $timesheet->getProject();
+            $budgetType           = Utils::getProjectBudgetType($project);
+            $hasRecurringBudget   = true;
+            $budgetRecurringValue = null;
+            $entry = [];
+
+            if (!$budgetType) {
+                $hasRecurringBudget = false;
+
+                if ($project->getBudget() > 0) {
+                    $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY;
+                } elseif ($project->getTimeBudget() > 0) {
+                    $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME;
+                } elseif ((int)$entry['time_budget_left'] !== 0) {
+                    $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME;
+                } elseif ((int)$entry['budget_left'] !== 0) {
+                    $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY;
+                }
+            } else {
+                switch ($budgetType) {
+                    case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME:
+                        $budgetRecurringValue = $project
+                            ->getMetaField(ProjectSubscriber::RECURRING_TIME_BUDGET_META_FIELD)
+                            ->getValue();
+
+                        $budgetRecurringValue = Utils::convertDurationStringToSeconds($budgetRecurringValue);
+                        break;
+
+                    case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY:
+                        $budgetRecurringValue = $project
+                            ->getMetaField(ProjectSubscriber::RECURRING_MONEY_BUDGET_META_FIELD)
+                            ->getValue();
+                        break;
+                }
             }
+            $entry['budgetRecurringValue'] = $budgetRecurringValue;
+            $entry['budgetType']           = $budgetType;
+            $entry['hasRecurringBudget']   = $hasRecurringBudget;
             
         }
         
