@@ -13,6 +13,7 @@ use App\Utils\LocaleFormatter;
 use KimaiPlugin\RecurringBudgetBundle\EventSubscriber\ProjectSubscriber;
 use Psr\Log\LoggerInterface;
 use KimaiPlugin\RecurringBudgetBundle\Utils\Utils;
+use Symfony\Component\Serializer\Encoder\JsonEncode;
 
 class TerminateActiveTrack extends Command
 {
@@ -101,6 +102,8 @@ class TerminateActiveTrack extends Command
             $entry['budgetRecurringValue'] = $budgetRecurringValue;
             $entry['budgetType']           = $budgetType;
             $entry['hasRecurringBudget']   = $hasRecurringBudget;
+
+            $this->io->writeln(json_encode($entry)); 
             
         }
         
