@@ -66,6 +66,7 @@ class TerminateActiveTrack extends Command
 
             $query = new ProjectQuery();  
             $budgetData     = $this->budgetRepository->getBudgetDataForProjectList($query);
+            $this->io->writeln(json_encode($budgetData)); 
             $projectIds     = \array_column($budgetData, 'id');
             $projectBudgets = [];
             $projects       = [];
