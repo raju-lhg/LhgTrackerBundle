@@ -129,7 +129,7 @@ class TerminateActiveTrack extends Command
 
                     $projectBudgets[$entry['id']] = $entry;
                     $projects[]                   = $project;
-                    $this->io->writeln(json_encode($entry)); 
+                    $this->io->writeln("Entry"); 
                 }
             }
             // Checks if project has Budget type set. 
