@@ -22,5 +22,9 @@ use Symfony\Component\Routing\Annotation\Route;
 // final class LhgTrackerController extends AbstractController
 final class LhgTrackerController
 {
+    public function __construct()
+    {
+        # code...
+    }
    
 }

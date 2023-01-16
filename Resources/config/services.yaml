@@ -12,5 +12,5 @@ services:
     KimaiPlugin\LhgTrackerBundle\Controller\:
         resource: '../../Controller'
         tags: ['controller.service_arguments']
-        arguments:
-            $dataDirectory: "%kimai.data_dir%"
+        # arguments:
+        #     $dataDirectory: "%kimai.data_dir%"
