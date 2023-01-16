@@ -57,6 +57,7 @@ class TerminateActiveTrack extends Command
         foreach ($activeEntries as $key =>  $timeEntry) {
             array_push($activeProjectIds, $timeEntry->getProject()->getId());
         }
+        $this->io->writeln(json_encode($activeProjectIds)); 
         $index = 0;
         foreach ($activeEntries as $key => $timesheet) {
             $index++;
@@ -130,6 +131,7 @@ class TerminateActiveTrack extends Command
                     $projectBudgets[$entry['id']] = $entry;
                     $projects[]                   = $project;
                     $this->io->writeln("Entry"); 
+                    $this->io->writeln(json_encode($entry)); 
                 }
             }
             // Checks if project has Budget type set. 
