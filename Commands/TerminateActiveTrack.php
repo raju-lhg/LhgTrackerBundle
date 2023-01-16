@@ -51,7 +51,7 @@ class TerminateActiveTrack extends Command
         $index = 0;
         foreach ($activeEntries as $key => $timesheet) {
             $index++;
-            $consoleOutput = $index."# <info>".$timesheet->getUser()->getDisplayName() ." => " . $timesheet->getProject()->getName(). " => " .  $timesheet->getDescription()."</info> </br>";
+            $consoleOutput = $timesheet->getProject()->getId()."# <info>".$timesheet->getUser()->getDisplayName() ." => " . $timesheet->getProject()->getName(). " => " .  $timesheet->getDescription()."</info>";
             $this->io->writeln($consoleOutput); 
             // Checks if project has Budget type set. 
             // if(Utils::getProjectBudgetType($timesheet->getProject())){
