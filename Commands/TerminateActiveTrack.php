@@ -51,143 +51,102 @@ class TerminateActiveTrack extends Command
     }
 
     private function terminate_active_records(){
-        $this->io->writeln("Terminating all active Tracks ...");
-        $activeEntries = $this->time_sheet_repository->getActiveEntries();
-        $activeProjectIds = [];
-        foreach ($activeEntries as $key =>  $timeEntry) {
-            array_push($activeProjectIds, $timeEntry->getProject()->getId());
-        }
-        $this->io->writeln(json_encode($activeProjectIds)); 
-        $index = 0;
-        foreach ($activeEntries as $key => $timesheet) {
-            $index++;
-            $consoleOutput = $timesheet->getProject()->getId()."# <info>".$timesheet->getUser()->getDisplayName() ." => " . $timesheet->getProject()->getName(). " => " .  $timesheet->getDescription()."</info>";
-            $this->io->writeln($consoleOutput); 
-
-            $query = new ProjectQuery();  
-            $budgetData     = $this->budgetRepository->getBudgetDataForProjectList($query);
-            // $this->io->writeln(json_encode($budgetData)); 
-            $projectIds     = \array_column($budgetData, 'id');
-            $projectBudgets = [];
-            $projects       = [];
-
-            foreach ($budgetData as $entry) {
-                if(in_array($entry['id'], $activeProjectIds)){
-                    $project = $timesheet->getProject();
-
-                    if (empty($project)) {
-                        continue;
-                    }
-
-                    $budgetType           = Utils::getProjectBudgetType($project);
-                    $hasRecurringBudget   = true;
-                    $budgetRecurringValue = null;
-
-                    if (!$budgetType) {
-                        $hasRecurringBudget = false;
-
-                        if ($project->getBudget() > 0) {
-                            $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY;
-                        } elseif ($project->getTimeBudget() > 0) {
-                            $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME;
-                        } elseif ((int)$entry['time_budget_left'] !== 0) {
-                            $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME;
-                        } elseif ((int)$entry['budget_left'] !== 0) {
-                            $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY;
-                        }
-                    } else {
-                        switch ($budgetType) {
-                            case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME:
-                                $budgetRecurringValue = $project
-                                    ->getMetaField(ProjectSubscriber::RECURRING_TIME_BUDGET_META_FIELD)
-                                    ->getValue();
-
-                                $budgetRecurringValue = Utils::convertDurationStringToSeconds($budgetRecurringValue);
-                                break;
-
-                            case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY:
-                                $budgetRecurringValue = $project
-                                    ->getMetaField(ProjectSubscriber::RECURRING_MONEY_BUDGET_META_FIELD)
-                                    ->getValue();
-                                break;
-                        }
-                    }
-
-                    if (\is_null($entry['time_budget_left']) || \is_null($entry['budget_left'])) {
-                        switch ($budgetType) {
-                            case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME:
-                                $entry['time_budget_left'] = $project->getTimeBudget();
-                                break;
-
-                            case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY:
-                                $entry['budget'] = $project->getBudget();
-                                break;
-                        }
-                    }
-
-                    $entry['budgetRecurringValue'] = $budgetRecurringValue;
-                    $entry['budgetType']           = $budgetType;
-                    $entry['hasRecurringBudget']   = $hasRecurringBudget;
-
-                    $projectBudgets[$entry['id']] = $entry;
-                    $projects[]                   = $project;
-                    $this->io->writeln("Entry"); 
-                    $this->io->writeln(json_encode($entry)); 
-                }
+        try {
+            $this->io->writeln("Terminating all active Tracks ...");
+            $activeEntries = $this->time_sheet_repository->getActiveEntries();
+            $activeProjectIds = [];
+            foreach ($activeEntries as $key =>  $timeEntry) {
+                array_push($activeProjectIds, $timeEntry->getProject()->getId());
             }
-            // Checks if project has Budget type set. 
-            // if(Utils::getProjectBudgetType($timesheet->getProject())){
-            //     // ToDo: 
-            //     // get ProjectBudgetInterval
-            //     $projectBudgetInterval = Utils::getProjectBudgetInterval($timesheet->getProject());
-            //     // get ProjectBudgetNextIntervalBeginDate
-            //     $ProjectBudgetNextIntervalBeginDate = Utils::getProjectBudgetNextIntervalBeginDate($timesheet->getProject());
-            //     // get CalculateTotalTimeAndAmountTrackedInCurrentInterval
-            //     // Terminate If Budget Reached or Exceeds
-            //     // $this->time_sheet_service->stopTimesheet($timesheet);
-            // }
-            
-            // $project = $timesheet->getProject();
-            // $budgetType           = Utils::getProjectBudgetType($project);
-            // $hasRecurringBudget   = true;
-            // $budgetRecurringValue = null;
-            // $entry = [];
+            $this->io->writeln(json_encode($activeProjectIds)); 
+            $index = 0;
+            foreach ($activeEntries as $key => $timesheet) {
+                $index++;
+                $consoleOutput = $timesheet->getProject()->getId()."# <info>".$timesheet->getUser()->getDisplayName() ." => " . $timesheet->getProject()->getName(). " => " .  $timesheet->getDescription()."</info>";
+                $this->io->writeln($consoleOutput); 
 
-            // if (!$budgetType) {
-            //     $hasRecurringBudget = false;
+                $query = new ProjectQuery();  
+                $budgetData     = $this->budgetRepository->getBudgetDataForProjectList($query); 
+                $projectIds     = \array_column($budgetData, 'id');
+                $projectBudgets = [];
+                $projects       = [];
 
-            //     if ($project->getBudget() > 0) {
-            //         $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY;
-            //     } elseif ($project->getTimeBudget() > 0) {
-            //         $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME;
-            //     } elseif ((int)$entry['time_budget_left'] !== 0) {
-            //         $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME;
-            //     } elseif ((int)$entry['budget_left'] !== 0) {
-            //         $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY;
-            //     }
-            // } else {
-            //     switch ($budgetType) {
-            //         case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME:
-            //             $budgetRecurringValue = $project
-            //                 ->getMetaField(ProjectSubscriber::RECURRING_TIME_BUDGET_META_FIELD)
-            //                 ->getValue();
+                foreach ($budgetData as $entry) {
+                    $this->io->writeln(json_encode($entry));
+                    if(in_array($entry['id'], $activeProjectIds)){
+                        $project = $timesheet->getProject();
 
-            //             $budgetRecurringValue = Utils::convertDurationStringToSeconds($budgetRecurringValue);
-            //             break;
+                        if (empty($project)) {
+                            continue;
+                        }
 
-            //         case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY:
-            //             $budgetRecurringValue = $project
-            //                 ->getMetaField(ProjectSubscriber::RECURRING_MONEY_BUDGET_META_FIELD)
-            //                 ->getValue();
-            //             break;
-            //     }
-            // }
-            // $entry['budgetRecurringValue'] = $budgetRecurringValue;
-            // $entry['budgetType']           = $budgetType;
-            // $entry['hasRecurringBudget']   = $hasRecurringBudget;
+                        $budgetType           = Utils::getProjectBudgetType($project);
+                        $hasRecurringBudget   = true;
+                        $budgetRecurringValue = null;
 
-            // $this->io->writeln(json_encode($entry)); 
-            
+                        if (!$budgetType) {
+                            $hasRecurringBudget = false;
+
+                            if ($project->getBudget() > 0) {
+                                $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY;
+                            } elseif ($project->getTimeBudget() > 0) {
+                                $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME;
+                            } elseif ((int)$entry['time_budget_left'] !== 0) {
+                                $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME;
+                            } elseif ((int)$entry['budget_left'] !== 0) {
+                                $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY;
+                            }
+                        } else {
+                            switch ($budgetType) {
+                                case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME:
+                                    $budgetRecurringValue = $project
+                                        ->getMetaField(ProjectSubscriber::RECURRING_TIME_BUDGET_META_FIELD)
+                                        ->getValue();
+
+                                    $budgetRecurringValue = Utils::convertDurationStringToSeconds($budgetRecurringValue);
+                                    break;
+
+                                case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY:
+                                    $budgetRecurringValue = $project
+                                        ->getMetaField(ProjectSubscriber::RECURRING_MONEY_BUDGET_META_FIELD)
+                                        ->getValue();
+                                    break;
+                            }
+                        }
+
+                        if (\is_null($entry['time_budget_left']) || \is_null($entry['budget_left'])) {
+                            switch ($budgetType) {
+                                case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME:
+                                    $entry['time_budget_left'] = $project->getTimeBudget();
+                                    break;
+
+                                case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY:
+                                    $entry['budget'] = $project->getBudget();
+                                    break;
+                            }
+                        }
+
+                        $entry['budgetRecurringValue'] = $budgetRecurringValue;
+                        $entry['budgetType']           = $budgetType;
+                        $entry['hasRecurringBudget']   = $hasRecurringBudget;
+
+                        $projectBudgets[$entry['id']] = $entry;
+                        $projects[]                   = $project;
+                        // Terminate The Tracker Record
+                        if($entry['time_budget_left'] <=0 || $entry['budget_left'] <=0){
+                            $this->time_sheet_service->stopTimesheet($timesheet);
+                        }
+                        $this->io->writeln("Following Entry Stopped"); 
+                        $this->io->writeln(json_encode($entry)); 
+                    }
+                    else{
+                        // $this->io->writeln("No active record for this project");
+                    }
+                }
+                
+            }
+        } catch (\Throwable $th) {
+            //throw $th;
         }
         
     }
