@@ -134,7 +134,7 @@ class TerminateActiveTrack extends Command
                         $projects[]                   = $project;
                         // Terminate The Tracker Record
                         if((int) $entry['time_budget_left'] <=0 || (int) $entry['budget_left'] <=0){
-                            $this->time_sheet_service->stopTimesheet($timesheet);
+                            // $this->time_sheet_service->stopTimesheet($timesheet); 
                         }
                         $this->io->writeln("Following Entry Stopped"); 
                         $this->io->writeln(json_encode($entry)); 
