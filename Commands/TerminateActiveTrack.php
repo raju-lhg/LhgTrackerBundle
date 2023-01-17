@@ -72,7 +72,7 @@ class TerminateActiveTrack extends Command
                 $projects       = [];
 
                 foreach ($budgetData as $entry) {
-                    $this->io->writeln(json_encode($entry));
+                    // $this->io->writeln(json_encode($entry));
                     if(in_array($entry['id'], $activeProjectIds)){
                         $project = $timesheet->getProject();
 
@@ -146,7 +146,7 @@ class TerminateActiveTrack extends Command
                 
             }
         } catch (\Throwable $th) {
-            //throw $th;
+            $this->io->writeln($th->getMessage()); 
         }
         
     }
