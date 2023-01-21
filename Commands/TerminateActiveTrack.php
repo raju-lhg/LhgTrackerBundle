@@ -75,8 +75,7 @@ class TerminateActiveTrack extends Command
                     if($budgetType != null){
                         $this->executeCalculateBudgetCommand($project);
 
-                        if($budgetType == ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY){
-                            $this->io->writeln("Money Money");
+                        if($budgetType == ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY){ 
                             $projectBudget          = $project->getBudget();  
                             $this->io->writeln($projectBudget);                          
                             $budgetData             = $this->getBudgetEntryByProject($project);
@@ -93,6 +92,7 @@ class TerminateActiveTrack extends Command
 
                         }
                         else{ 
+                            //Todo:  Process Time Budget
                         }
                     }
                 }
