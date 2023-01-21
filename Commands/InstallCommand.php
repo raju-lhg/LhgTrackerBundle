@@ -62,7 +62,7 @@ class InstallCommand extends Command
         $this->io->writeln("<bg=green>********************************** Installing LhgTrackerBundle **********************************************</>");
         $this->io->writeln("<bg=green>=============================================================================================================</>");
         if($this->check_if_custom_field_exists()){
-                $this->io->writeln(" *************** Meta field already exists! ***************"); 
+                $this->io->writeln(" *************** Meta field already exists *************"); 
         }
         else{
             $this->add_custom_field();
