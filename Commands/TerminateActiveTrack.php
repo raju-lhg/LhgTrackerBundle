@@ -2,27 +2,27 @@
 
 namespace KimaiPlugin\LhgTrackerBundle\Commands;
 
-use App\Repository\Query\ProjectQuery;
+use App\Entity\Project;
+use App\Entity\Timesheet;
+use App\Entity\User;
+use App\Entity\UserPreference;
+use App\Repository\Loader\TimesheetLoader; 
 use App\Repository\TimesheetRepository;
 use App\Timesheet\TimesheetService;
+use DateTime;
 use Symfony\Component\Console\Command\Command;
-use Symfony\Component\Console\Input\InputInterface;
-use Symfony\Component\Console\Input\InputOption;
+use Symfony\Component\Console\Input\InputInterface; 
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
-use App\Utils\LocaleFormatter;
+use Symfony\Component\Console\Style\SymfonyStyle; 
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\QueryBuilder as ORMQueryBuilder;
 use KimaiPlugin\RecurringBudgetBundle\Entity\BudgetEntry;
-use KimaiPlugin\RecurringBudgetBundle\EventSubscriber\ProjectSubscriber;
+use KimaiPlugin\RecurringBudgetBundle\EventSubscriber\ProjectSubscriber; 
 use KimaiPlugin\RecurringBudgetBundle\Repository\BudgetRepository;
 use Psr\Log\LoggerInterface;
-use KimaiPlugin\RecurringBudgetBundle\Utils\Utils;
-use PhpCsFixer\Console\Output\NullOutput;
-use Symfony\Component\Console\Application;
+use KimaiPlugin\RecurringBudgetBundle\Utils\Utils; 
 use Symfony\Component\Console\Input\ArrayInput;
-use Symfony\Component\Console\Output\BufferedOutput;
-use Symfony\Component\HttpKernel\KernelInterface;
-use Symfony\Component\Serializer\Encoder\JsonEncode;
+use Symfony\Component\Console\Output\BufferedOutput; 
 
 class TerminateActiveTrack extends Command
 {
@@ -63,7 +63,8 @@ class TerminateActiveTrack extends Command
     private function terminate_active_records(){
         try {
             $this->io->writeln("Terminating all active Tracks ...");
-            $activeEntries = $this->time_sheet_repository->getActiveEntries();
+            $activeEntries = $this->getActiveEntriesByProject();
+            
             $processedProjectIds = [];
             foreach ($activeEntries as $key => $timesheet) {
                 $project = $timesheet->getProject();
@@ -72,16 +73,26 @@ class TerminateActiveTrack extends Command
                     array_push($processedProjectIds, $project->getId());
                     $budgetType           = Utils::getProjectBudgetType($project);
                     if($budgetType != null){
+                        $this->executeCalculateBudgetCommand($project);
+
                         if($budgetType == ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY){
-                            $command = $this->getApplication()->find('recurring-budget:calculate');
-                            $arguments = [
-                                '-p'  => $project->getId(),
-                            ];
-                            $greetInput = new ArrayInput($arguments);
-                            $command->run($greetInput, new BufferedOutput()); 
+                            $this->io->writeln("Money Money");
+                            $projectBudget          = $project->getBudget();  
+                            $this->io->writeln($projectBudget);                          
+                            $budgetData             = $this->getBudgetEntryByProject($project);
+                            if($budgetData){
+                                $availableBudgetOnDb    = $budgetData->getBudgetAvailable(); 
+                                $spentOnRunningTaskSpent = $this->calculateRunningTasksSpentByProjectId($project);
+
+                                if($availableBudgetOnDb <= $spentOnRunningTaskSpent){
+                                    $this->time_sheet_service->stopTimesheet($timesheet, false);
+                                    $this->executeCalculateBudgetCommand($project);
+                                }
+
+                            }
+
                         }
-                        else{
-                            $this->io->writeln("Time Time");
+                        else{ 
                         }
                     }
                 }
@@ -96,104 +107,90 @@ class TerminateActiveTrack extends Command
         
     }
 
-    // private function terminate_active_records(){
-    //     try {
-    //         $this->io->writeln("Terminating all active Tracks ...");
-    //         $activeEntries = $this->time_sheet_repository->getActiveEntries();
-    //         $activeProjectIds = [];
-    //         foreach ($activeEntries as $key =>  $timeEntry) {
-    //             array_push($activeProjectIds, $timeEntry->getProject()->getId());
-    //         }
-    //         $this->io->writeln(json_encode($activeProjectIds)); 
-    //         $index = 0;
-    //         foreach ($activeEntries as $key => $timesheet) {
-    //             $index++;
-    //             $consoleOutput = $timesheet->getProject()->getId()."# <info>".$timesheet->getUser()->getDisplayName() ." => " . $timesheet->getProject()->getName(). " => " .  $timesheet->getDescription()."</info>";
-    //             $this->io->writeln($consoleOutput); 
+    private function executeCalculateBudgetCommand(Project $project){
+        $command = $this->getApplication()->find('recurring-budget:calculate');
+        $arguments = [
+            '-p'  => $project->getId(),
+        ];
+        $greetInput = new ArrayInput($arguments);
+        $command->run($greetInput, new BufferedOutput());
+    }
 
-    //             $query = new ProjectQuery();  
-    //             $budgetData     = $this->budgetRepository->getBudgetDataForProjectList($query); 
-    //             $projectIds     = \array_column($budgetData, 'id');
-    //             $projectBudgets = [];
-    //             $projects       = [];
+    private function calculateRunningTasksSpentByProjectId(Project $project){
+        $activeEntries = $this->getActiveEntriesByProject($project);
+        $totalSpentOnProject = 0;
+        foreach ($activeEntries as $key => $timeSheet) {
+            $userHourlyData = $this->getUserHourlyRate($timeSheet->getUser());
+            if($userHourlyData){
+                $rate = $userHourlyData->getValue();
+                $begin = clone $timeSheet->getBegin();
+                $end = new DateTime('now', $begin->getTimezone());
 
-    //             foreach ($budgetData as $entry) {
-    //                 // $this->io->writeln(json_encode($entry));
-    //                 if(in_array($entry['id'], $activeProjectIds)){
-    //                     $project = $timesheet->getProject();
+                $timeSheet->setBegin($begin);
+                $timeSheet->setEnd($end);
 
-    //                     if (empty($project)) {
-    //                         continue;
-    //                     }
+                $difference = $end->diff($begin);
+                $hours = round($difference->s / 3600 + $difference->i / 60 + $difference->h + $difference->days * 24, 2);
 
-    //                     $budgetType           = Utils::getProjectBudgetType($project);
-    //                     $hasRecurringBudget   = true;
-    //                     $budgetRecurringValue = null;
+                $spentOnCurrentTask = $rate * $hours;
 
-    //                     if (!$budgetType) {
-    //                         $hasRecurringBudget = false;
+                $totalSpentOnProject += $spentOnCurrentTask; 
 
-    //                         if ($project->getBudget() > 0) {
-    //                             $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY;
-    //                         } elseif ($project->getTimeBudget() > 0) {
-    //                             $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME;
-    //                         } elseif ((int)$entry['time_budget_left'] !== 0) {
-    //                             $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME;
-    //                         } elseif ((int)$entry['budget_left'] !== 0) {
-    //                             $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY;
-    //                         }
-    //                     } else {
-    //                         switch ($budgetType) {
-    //                             case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME:
-    //                                 $budgetRecurringValue = $project
-    //                                     ->getMetaField(ProjectSubscriber::RECURRING_TIME_BUDGET_META_FIELD)
-    //                                     ->getValue();
+            }
+        }
 
-    //                                 $budgetRecurringValue = Utils::convertDurationStringToSeconds($budgetRecurringValue);
-    //                                 break;
+        return $totalSpentOnProject;
+    }
 
-    //                             case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY:
-    //                                 $budgetRecurringValue = $project
-    //                                     ->getMetaField(ProjectSubscriber::RECURRING_MONEY_BUDGET_META_FIELD)
-    //                                     ->getValue();
-    //                                 break;
-    //                         }
-    //                     }
+    private function getActiveEntriesByProject(Project $project = null)
+    {
+        $qb = $this->entityManager->createQueryBuilder();
 
-    //                     if (\is_null($entry['time_budget_left']) || \is_null($entry['budget_left'])) {
-    //                         switch ($budgetType) {
-    //                             case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME:
-    //                                 $entry['time_budget_left'] = $project->getTimeBudget();
-    //                                 break;
+        $qb->select('t')
+            ->from(Timesheet::class, 't')
+            ->andWhere($qb->expr()->isNotNull('t.begin'))
+            ->andWhere($qb->expr()->isNull('t.end'))
+            ->orderBy('t.begin', 'DESC');
 
-    //                             case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY:
-    //                                 $entry['budget'] = $project->getBudget();
-    //                                 break;
-    //                         }
-    //                     }
+        if (null !== $project) {
+            $qb->andWhere('t.project = :project');
+            $qb->setParameter('project', $project);
+        }
 
-    //                     $entry['budgetRecurringValue'] = $budgetRecurringValue;
-    //                     $entry['budgetType']           = $budgetType;
-    //                     $entry['hasRecurringBudget']   = $hasRecurringBudget;
+        return $this->getHydratedTimeSheetResultsByQuery($qb, false);
+    }
 
-    //                     $projectBudgets[$entry['id']] = $entry;
-    //                     $projects[]                   = $project;
-    //                     // Terminate The Tracker Record
-    //                     if((int) $entry['time_budget_left'] <=0 || (int) $entry['budget_left'] <=0){
-    //                         // $this->time_sheet_service->stopTimesheet($timesheet); 
-    //                     }
-    //                     $this->io->writeln("Following Entry Stopped"); 
-    //                     $this->io->writeln(json_encode($entry)); 
-    //                 }
-    //                 else{
-    //                     // $this->io->writeln("No active record for this project");
-    //                 }
-    //             }
-                
-    //         }
-    //     } catch (\Throwable $th) {
-    //         $this->io->writeln($th->getMessage()); 
-    //     }
-        
-    // }
+    protected function getHydratedTimeSheetResultsByQuery(ORMQueryBuilder $qb, bool $fullyHydrated = false): iterable
+    {
+        $results = $qb->getQuery()->getResult();
+
+        $loader = new TimesheetLoader($qb->getEntityManager(), $fullyHydrated);
+        $loader->loadResults($results);
+
+        return $results;
+    }
+
+    private function getBudgetEntryByProject(Project $project = null)
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+
+        $qb->select('be')
+            ->from(BudgetEntry::class, 'be')
+            ->andWhere('be.project = :project')
+            ->setParameter('project', $project); 
+        return $results = $qb->getQuery()->getSingleResult();
+    }
+
+    private function getUserHourlyRate(User $user)
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+
+        $qb->select('up')
+            ->from(UserPreference::class, 'up')
+            ->andWhere('up.user = :user')
+            ->andWhere('up.name = :name')
+            ->setParameter('user', $user)
+            ->setParameter('name', 'hourly_rate'); 
+        return $results = $qb->getQuery()->getSingleResult();
+    } 
 }
