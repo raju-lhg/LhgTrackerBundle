@@ -5,7 +5,8 @@ use App\Entity\EntityWithMetaFields;
 use App\Entity\MetaTableTypeInterface;
 use App\Entity\ProjectMeta;
 use App\Event\ProjectMetaDefinitionEvent;
-use Doctrine\DBAL\Types\BooleanType; 
+use Doctrine\DBAL\Types\BooleanType;
+use Doctrine\DBAL\Types\TextType;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Validator\Constraints\Length;
 
@@ -29,10 +30,10 @@ class ProjectMetaFieldSubscriber implements EventSubscriberInterface{
             ->setLabel('Allow Over Budget Tracking')
             ->setOptions(['help' => 'Select true if you want users to track over budget for this project.'])
             ->setName('allow_over_budget_tracking')
-            ->setType(BooleanType::class)
+            ->setType(TextType::class)
             ->addConstraint(new Length(['max' => 11]))
             ->setIsVisible(true);
 
-        $entity->setMetaField($definition);
+        // $entity->setMetaField($definition);
     }
 }

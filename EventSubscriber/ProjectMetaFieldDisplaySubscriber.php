@@ -26,7 +26,7 @@ class ProjectMetaFieldDisplaySubscriber implements EventSubscriberInterface
 
     public function loadProjectField(ProjectMetaDisplayEvent $event)
     {
-        $event->addField($this->prepareField(new ProjectMeta()));
+        // $event->addField($this->prepareField(new ProjectMeta()));
     }
 
 
@@ -35,7 +35,7 @@ class ProjectMetaFieldDisplaySubscriber implements EventSubscriberInterface
         $definition
             ->setLabel('Allow Over Budget Tracking')
             ->setName('allow_over_budget_tracking')
-            ->setType(BooleanType::class);
+            ->setType(TextType::class);
 
         return $definition;
     }
