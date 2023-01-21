@@ -16,6 +16,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle; 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\Query\ResultSetMapping;
+use KimaiPlugin\LhgTrackerBundle\Providers\ServiceProviders\LhgTrackerServiceProvider;
 use KimaiPlugin\MetaFieldsBundle\Entity\MetaFieldRule;
 use KimaiPlugin\MetaFieldsBundle\Repository\MetaFieldRuleRepository;
 use KimaiPlugin\RecurringBudgetBundle\EventSubscriber\ProjectSubscriber;
@@ -77,7 +78,7 @@ class InstallCommand extends Command
             $metaFieldEntity = new MetaFieldRule(); 
 
             $existingField = $this->entityManager->getRepository(get_class($metaFieldEntity))->findOneBy([
-                "name" => "allow_over_budget_on_project"
+                "name" => LhgTrackerServiceProvider::CUSTOM_FIELD_NAME
             ]);
             if($existingField){
                 return true;
@@ -91,7 +92,7 @@ class InstallCommand extends Command
 
     private function add_custom_field(): void{
         try {
-            $this->io->writeln("********************************** Adding custom field **********************************************"); 
+            $this->io->writeln("********************************** Adding Meta Field **********************************************"); 
             $entity = $this->prepareEntity();
             $this->entityManager->persist($entity);
             $this->entityManager->flush();
@@ -104,7 +105,7 @@ class InstallCommand extends Command
     private function prepareEntity() :MetaFieldRule
     {
         $entity = new MetaFieldRule();
-        $entity->setName('allow_over_budget_on_project');
+        $entity->setName(LhgTrackerServiceProvider::CUSTOM_FIELD_NAME);
         $entity->setEntityType(get_class(new Project()));
         $entity->setValue(0);
         $entity->setVisible(1); 
