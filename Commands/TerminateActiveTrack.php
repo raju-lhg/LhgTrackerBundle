@@ -102,7 +102,7 @@ class TerminateActiveTrack extends Command
             // $this->io->writeln($processedProjectIds);
             
         } catch (\Throwable $th) {
-            $this->io->writeln($th->getMessage()); 
+            $this->io->writeln("Exception thrown in ". $th->getFile() ." on line ". $th->getLine().": [Code ".$th->getCode()."]".  $th->getMessage()); 
         }
         
     }
