@@ -79,7 +79,7 @@ class TerminateActiveTrack extends Command
                             $projectBudget          = $project->getBudget();  
                             $this->io->writeln($projectBudget);                          
                             $budgetData             = $this->getBudgetEntryByProject($project);
-                            $this->io->writeln("budgetData : ". $budgetData);
+                            $this->io->writeln("budgetData : ". $budgetData->getBudgetAvailable());
                             if($budgetData){
                                 $availableBudgetOnDb    = $budgetData->getBudgetAvailable(); 
                                 $spentOnRunningTaskSpent = $this->calculateRunningTasksSpentByProjectId($project);
