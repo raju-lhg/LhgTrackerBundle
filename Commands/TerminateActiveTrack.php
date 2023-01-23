@@ -79,10 +79,11 @@ class TerminateActiveTrack extends Command
                             $projectBudget          = $project->getBudget();  
                             $this->io->writeln($projectBudget);                          
                             $budgetData             = $this->getBudgetEntryByProject($project);
+                            $this->io->writeln("budgetData : ". $budgetData);
                             if($budgetData){
                                 $availableBudgetOnDb    = $budgetData->getBudgetAvailable(); 
                                 $spentOnRunningTaskSpent = $this->calculateRunningTasksSpentByProjectId($project);
-
+                                $this->io->writeln("Project Cost On Running Tasks : ". $spentOnRunningTaskSpent);
                                 if($availableBudgetOnDb <= $spentOnRunningTaskSpent){
                                     $this->time_sheet_service->stopTimesheet($timesheet, false);
                                     $this->executeCalculateBudgetCommand($project);
