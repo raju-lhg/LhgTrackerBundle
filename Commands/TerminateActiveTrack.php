@@ -77,7 +77,7 @@ class TerminateActiveTrack extends Command
 
                         if($budgetType == ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY){ 
                             $projectBudget          = $project->getBudget();  
-                            $this->io->writeln($projectBudget);                          
+                            $this->io->writeln("projectBudget : ". $projectBudget);                        
                             $budgetData             = $this->getBudgetEntryByProject($project);
                             
                             if($budgetData){
