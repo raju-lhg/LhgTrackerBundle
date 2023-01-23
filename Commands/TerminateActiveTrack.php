@@ -178,7 +178,7 @@ class TerminateActiveTrack extends Command
             ->from(BudgetEntry::class, 'be')
             ->andWhere('be.project = :project')
             ->setParameter('project', $project); 
-        return $results = $qb->getQuery()->getSingleResult();
+        return $results = $qb->getQuery()->getOneOrNullResult();
     }
 
     private function getUserHourlyRate(User $user)
@@ -191,6 +191,6 @@ class TerminateActiveTrack extends Command
             ->andWhere('up.name = :name')
             ->setParameter('user', $user)
             ->setParameter('name', 'hourly_rate'); 
-        return $results = $qb->getQuery()->getSingleResult();
+        return $results = $qb->getQuery()->getOneOrNullResult();
     } 
 }
