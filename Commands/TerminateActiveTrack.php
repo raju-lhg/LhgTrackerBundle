@@ -57,6 +57,7 @@ class TerminateActiveTrack extends Command
         $this->io->writeln("<bg=green>********************************** LHGTracker Auto Terminator **********************************************</>");
         $this->io->writeln("<bg=green>============================================================================================================</>");
         $this->terminate_active_records();
+        $this->logger->info('Terminator Executed at '. date("Y-m-d h:i:sa"));
         return 0;
     }
 
@@ -94,7 +95,7 @@ class TerminateActiveTrack extends Command
 
                         }
                         else{ 
-                            //Todo:  Process Time Budget
+                            
                         }
                     }
                 }
