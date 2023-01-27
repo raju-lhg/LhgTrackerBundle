@@ -19,6 +19,7 @@ use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle; 
 use Doctrine\ORM\EntityManagerInterface;
 use Doctrine\ORM\QueryBuilder as ORMQueryBuilder;
+use KimaiPlugin\LhgTrackerBundle\Providers\ServiceProviders\LhgTrackerServiceProvider;
 use KimaiPlugin\RecurringBudgetBundle\Entity\BudgetEntry;
 use KimaiPlugin\RecurringBudgetBundle\EventSubscriber\ProjectSubscriber; 
 use KimaiPlugin\RecurringBudgetBundle\Repository\BudgetRepository;
@@ -76,15 +77,35 @@ class TerminateActiveTrack extends Command
             foreach ($activeEntries as $key => $timesheet) {
                 
                 $project = $timesheet->getProject();
+                $isOverBudgetAllowed = $project
+                            ->getMetaField(LhgTrackerServiceProvider::CUSTOM_FIELD_NAME);
+                if($isOverBudgetAllowed && $isOverBudgetAllowed->getValue() == 1){
+                    continue;
+                }
                 $projectBudget = $this->getProjectBudgetData($project->getId());
                 $this->io->writeln(json_encode($projectBudget));
                 if(isset($projectBudget)){
                     $spentOnRunningTaskSpent = $this->calculateRunningTasksSpentByProjectId($project);
-                    $this->io->writeln("Cost: ".$spentOnRunningTaskSpent);
+                    // $this->io->writeln("Cost: ".$spentOnRunningTaskSpent);
                     if($projectBudget['hasRecurringBudget'] == false){
                         $totalBudgetLeft = $projectBudget['budget_left'] - $spentOnRunningTaskSpent;
                         if($totalBudgetLeft >= 0){
                             $this->time_sheet_service->stopTimesheet($timesheet, false);
+                        }
+                    }
+                    else{
+                        $interValField = $project
+                            ->getMetaField(ProjectSubscriber::RECURRING_BUDGET_INTERVAL_META_FIELD);
+                        if($interValField){
+                            preg_match_all('!\d+!', $interValField->getValue(), $intervalValue);
+                            $nextIntervalField = $project
+                            ->getMetaField(ProjectSubscriber::RECURRING_BUDGET_NEXT_INTERVAL_BEGIN_DATE_META_FIELD);
+                            if($nextIntervalField){
+                                $nextInterValDate = $nextIntervalField->getValue();
+                                if($nextInterValDate){
+                                    $previousInterValData = Carbon::parse($date)->format('Y-m-d');
+                                }
+                            }
                         }
                     }
                 }
@@ -288,8 +309,10 @@ class TerminateActiveTrack extends Command
             $entry['budgetRecurringValue'] = $budgetRecurringValue;
             $entry['budgetType']           = $budgetType;
             $entry['hasRecurringBudget']   = $hasRecurringBudget;
+            $entry['total_budget']           = $project->getBudget();
 
             $projectBudgets[$entry['id']] = $entry; 
+
             $returnData = $entry;
         }
 
