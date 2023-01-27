@@ -2,11 +2,14 @@
 
 namespace KimaiPlugin\LhgTrackerBundle\Commands;
 
+use App\Entity\Customer;
 use App\Entity\Project;
 use App\Entity\Timesheet;
 use App\Entity\User;
 use App\Entity\UserPreference;
-use App\Repository\Loader\TimesheetLoader; 
+use App\Repository\Loader\TimesheetLoader;
+use App\Repository\ProjectRepository;
+use App\Repository\Query\ProjectQuery;
 use App\Repository\TimesheetRepository;
 use App\Timesheet\TimesheetService;
 use DateTime;
@@ -33,7 +36,8 @@ class TerminateActiveTrack extends Command
     private $budgetRepository;
     private $time_sheet_service;
     private $logger;
-    private $entityManager; 
+    private $entityManager;  
+    private $projectRepository;
 
     public function __construct( 
         TimesheetRepository $time_sheet_repository,
@@ -41,6 +45,7 @@ class TerminateActiveTrack extends Command
         TimesheetService $time_sheet_service,
         LoggerInterface $logger,
         EntityManagerInterface $entityManager, 
+        ProjectRepository $projectRepository,
     ) {
         parent::__construct();
         $this->time_sheet_repository = $time_sheet_repository;
@@ -48,6 +53,7 @@ class TerminateActiveTrack extends Command
         $this->time_sheet_service = $time_sheet_service;
         $this->logger = $logger;
         $this->entityManager = $entityManager; 
+        $this->projectRepository = $projectRepository;
     }
     
 
@@ -78,9 +84,17 @@ class TerminateActiveTrack extends Command
 
                         if($budgetType == ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY){ 
                             $projectBudget          = $project->getBudget();  
-                            $this->io->writeln("projectBudget : ". $projectBudget);                        
+                            $budgetRecurringValue = $project
+                            ->getMetaField(ProjectSubscriber::RECURRING_MONEY_BUDGET_META_FIELD)
+                            ->getValue();
+
+                            $interValType = $project
+                            ->getMetaField(ProjectSubscriber::RECURRING_BUDGET_INTERVAL_META_FIELD)
+                            ->getValue();
+
                             $budgetData             = $this->getBudgetEntryByProject($project);
-                            
+                            $spentOnRunningTaskSpent = $this->calculateRunningTasksSpentByProjectId($project);
+                            $this->io->writeln("Project Cost On Running Tasks : ". $spentOnRunningTaskSpent);
                             if($budgetData){
                                 $this->io->writeln("budgetData : ". $budgetData->getBudgetAvailable());
                                 $availableBudgetOnDb    = $budgetData->getBudgetAvailable(); 
@@ -195,5 +209,201 @@ class TerminateActiveTrack extends Command
             ->setParameter('user', $user)
             ->setParameter('name', 'hourly_rate'); 
         return $results = $qb->getQuery()->getOneOrNullResult();
-    } 
+    }
+
+    private function getProjectBudgetData(array $projectIds){
+        $query = new ProjectQuery();        
+        $budgetData     = $this->getBudgetDataForProjectList($query, $projectIds);
+        $projectIds     = \array_column($budgetData, 'id');
+        $projectBudgets = [];
+        $projects       = [];
+
+        foreach ($budgetData as $entry) {
+            $project = $this->projectRepository->find($entry['id']);
+
+            if (empty($project)) {
+                continue;
+            }
+
+            $budgetType           = Utils::getProjectBudgetType($project);
+            $hasRecurringBudget   = true;
+            $budgetRecurringValue = null;
+
+            if (!$budgetType) {
+                $hasRecurringBudget = false;
+
+                if ($project->getBudget() > 0) {
+                    $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY;
+                } elseif ($project->getTimeBudget() > 0) {
+                    $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME;
+                } elseif ((int)$entry['time_budget_left'] !== 0) {
+                    $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME;
+                } elseif ((int)$entry['budget_left'] !== 0) {
+                    $budgetType = ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY;
+                }
+            } else {
+                switch ($budgetType) {
+                    case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME:
+                        $budgetRecurringValue = $project
+                            ->getMetaField(ProjectSubscriber::RECURRING_TIME_BUDGET_META_FIELD)
+                            ->getValue();
+
+                        $budgetRecurringValue = Utils::convertDurationStringToSeconds($budgetRecurringValue);
+                        break;
+
+                    case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY:
+                        $budgetRecurringValue = $project
+                            ->getMetaField(ProjectSubscriber::RECURRING_MONEY_BUDGET_META_FIELD)
+                            ->getValue();
+                        break;
+                }
+            }
+
+            if (\is_null($entry['time_budget_left']) || \is_null($entry['budget_left'])) {
+                switch ($budgetType) {
+                    case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_TIME:
+                        $entry['time_budget_left'] = $project->getTimeBudget();
+                        break;
+
+                    case ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY:
+                        $entry['budget'] = $project->getBudget();
+                        break;
+                }
+            }
+
+            $entry['budgetRecurringValue'] = $budgetRecurringValue;
+            $entry['budgetType']           = $budgetType;
+            $entry['hasRecurringBudget']   = $hasRecurringBudget;
+
+            $projectBudgets[$entry['id']] = $entry; 
+        }
+
+        return $projectBudgets;
+    }
+
+    public function getBudgetDataForProjectList(ProjectQuery $query, array $projectIds)
+    {
+        // SELECT
+        $sql = "SELECT p.`id`, record.`record_duration`, record.`record_rate`";
+        $sql .= ",(p.`time_budget` - record.`record_duration`) as `time_budget_left`";
+        $sql .= ",(p.`budget` - record.`record_rate`) as `budget_left`";
+
+        // Sub-selects for recurring budgets
+        $sql .= ",(SELECT `value` FROM `kimai2_projects_meta` m WHERE p.`id` = `m`.`project_id` AND";
+        $sql .= "`name` = 'Recurring_Time_Budget') as time_budget_recurring";
+
+        $sql .= ",(SELECT `value` FROM `kimai2_projects_meta` m WHERE p.`id` = `m`.`project_id` AND";
+        $sql .= "`name` = 'Recurring_Money_Budget') as money_budget_recurring";
+
+        // Sub-selects for teams
+        $sql .= ",(SELECT t.`name` FROM `kimai2_teams` t WHERE t.`id` IN (SELECT pt.`team_id` FROM";
+        $sql .= "`kimai2_projects_teams` pt WHERE pt.`project_id` = p.`id`) ORDER BY t.`id` ASC LIMIT 1) as project_team";
+
+        $sql .= ",(SELECT t.`name` FROM `kimai2_teams` t WHERE t.`id` IN (SELECT ct.`team_id` FROM";
+        $sql .= "`kimai2_customers_teams` ct WHERE ct.`customer_id` = p.`customer_id`) ORDER BY t.`id` ASC LIMIT 1) as customer_team";
+
+        $sql .= " FROM `kimai2_projects` p";
+        $sql .= " LEFT JOIN `kimai2_customers` c ON p.`customer_id` = c.`id`";
+        $sql .= " LEFT JOIN (SELECT `project_id`, SUM(`duration`) as record_duration, SUM(`rate`) as record_rate";
+        $sql .= " FROM `kimai2_timesheet` GROUP BY `project_id`) as record ON p.`id` = record.`project_id`";
+
+        // WHERE
+        $where = [
+            'p.`visible` = 1',
+            'c.`visible` = 1', 
+            'p.`id` = '.$projectIds
+        ];
+
+        if ($query->hasCustomers()) {
+            $customerIds = [];
+
+            foreach ($query->getCustomers() as $customer) {
+                if (\is_int($customer)) {
+                    $customerIds[] = $customer;
+                } elseif ($customer instanceof Customer) {
+                    $customerIds[] = $customer->getId();
+                }
+            }
+
+            if (!empty($customerIds)) {
+                $where[] = 'p.`customer_id` IN ('.\implode(',', $customerIds).')';
+            }
+        }
+
+        if (!empty($where)) {
+            $sql .= " WHERE ".\implode(' AND ', $where);
+        }
+
+        // HAVING
+        $having  = [];
+        $teamIds = [];
+
+        foreach ($query->getTeams() as $team) {
+            $teamIds[] = $team->getName();
+        }
+
+        if (!empty($teamIds)) {
+            $teamIdsStr = "'".\implode("','", $teamIds)."'";
+            $having[]   = '(`project_team` IN ('.$teamIdsStr.') OR `customer_team` IN ('.$teamIdsStr.'))';
+        }
+
+        if (!empty($having)) {
+            $sql .= " HAVING ".\implode(' AND ', $having);
+        }
+
+        // ORDER
+        $orderFields    = [];
+        $orderDirection = $query->getOrder();
+
+        switch ($query->getOrderBy()) {
+            case 'budgetRecurring':
+                $orderFields[] = '`time_budget_recurring` '.$orderDirection;
+                $orderFields[] = '`money_budget_recurring` '.$orderDirection;
+                break;
+
+            case 'budgetTotal':
+                $orderFields[] = 'p.`time_budget` '.$orderDirection;
+                $orderFields[] = 'p.`budget` '.$orderDirection;
+                $orderFields[] = '`time_budget_left` '.$orderDirection;
+                $orderFields[] = '`budget_left` '.$orderDirection;
+                break;
+
+            case 'budgetAvailable':
+                $orderFields[] = '`time_budget_left` '.$orderDirection;
+                $orderFields[] = '`budget_left` '.$orderDirection;
+                $orderFields[] = '`time_budget_recurring` '.$orderDirection;
+                $orderFields[] = '`money_budget_recurring` '.$orderDirection;
+                break;
+
+            case 'project':
+                $orderFields[] = 'p.`name` '.$orderDirection;
+                break;
+
+            case 'customer':
+                $orderFields[] = 'c.`name` '.$orderDirection;
+                break;
+
+            case 'projectTeam':
+                $orderFields[] = '`project_team` '.$orderDirection;
+                $orderFields[] = '`customer_team` '.$orderDirection;
+                break;
+
+            case 'default':
+            case 'sort.default':
+            default:
+                $orderFields[] = '`time_budget_left` DESC';
+                $orderFields[] = '`budget_left` DESC';
+                break;
+        }
+
+        if (!empty($orderFields)) {
+            $sql .= " ORDER BY ".\implode(',', $orderFields);
+        } 
+
+        $stmt          = $this->entityManager->getConnection()->prepare($sql);
+        $result        = $stmt->executeQuery();
+        $projectResult = $result->fetchAllAssociative(); 
+
+        return $projectResult;
+    }
 }
