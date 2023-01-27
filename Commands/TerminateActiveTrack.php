@@ -69,54 +69,66 @@ class TerminateActiveTrack extends Command
 
     private function terminate_active_records(){
         try {
-            $this->io->writeln("Terminating all active Tracks ...");
+            // $this->io->writeln("Terminating all active Tracks ...");
             $activeEntries = $this->getActiveEntriesByProject();
             
             $processedProjectIds = [];
             foreach ($activeEntries as $key => $timesheet) {
+                
                 $project = $timesheet->getProject();
-                if(!in_array($project->getId(), $processedProjectIds)){
-                    
-                    array_push($processedProjectIds, $project->getId());
-                    $budgetType           = Utils::getProjectBudgetType($project);
-                    if($budgetType != null){
-                        $this->executeCalculateBudgetCommand($project);
-
-                        if($budgetType == ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY){ 
-                            $projectBudget          = $project->getBudget();  
-                            $budgetRecurringValue = $project
-                            ->getMetaField(ProjectSubscriber::RECURRING_MONEY_BUDGET_META_FIELD)
-                            ->getValue();
-
-                            $interValType = $project
-                            ->getMetaField(ProjectSubscriber::RECURRING_BUDGET_INTERVAL_META_FIELD)
-                            ->getValue();
-
-                            $budgetData             = $this->getBudgetEntryByProject($project);
-                            $spentOnRunningTaskSpent = $this->calculateRunningTasksSpentByProjectId($project);
-                            $this->io->writeln("Project Cost On Running Tasks : ". $spentOnRunningTaskSpent);
-                            if($budgetData){
-                                $this->io->writeln("budgetData : ". $budgetData->getBudgetAvailable());
-                                $availableBudgetOnDb    = $budgetData->getBudgetAvailable(); 
-                                $spentOnRunningTaskSpent = $this->calculateRunningTasksSpentByProjectId($project);
-                                $this->io->writeln("Project Cost On Running Tasks : ". $spentOnRunningTaskSpent);
-                                if($availableBudgetOnDb <= $spentOnRunningTaskSpent){
-                                    $this->time_sheet_service->stopTimesheet($timesheet, false);
-                                    $this->executeCalculateBudgetCommand($project);
-                                }
-
-                            }
-
-                        }
-                        else{ 
-                            
+                $projectBudget = $this->getProjectBudgetData($project->getId());
+                $this->io->writeln(json_encode($projectBudget));
+                if(isset($projectBudget)){
+                    $spentOnRunningTaskSpent = $this->calculateRunningTasksSpentByProjectId($project);
+                    $this->io->writeln("Cost: ".$spentOnRunningTaskSpent);
+                    if($projectBudget['hasRecurringBudget'] == false){
+                        $totalBudgetLeft = $projectBudget['budget_left'] - $spentOnRunningTaskSpent;
+                        if($totalBudgetLeft >= 0){
+                            $this->time_sheet_service->stopTimesheet($timesheet, false);
                         }
                     }
                 }
-                $consoleOutput = $project->getId()."# <info>".$timesheet->getUser()->getDisplayName() ." => " . $project->getName(). " => " .  $timesheet->getDescription()."</info>";
-                $this->io->writeln($consoleOutput);
-            }
-            // $this->io->writeln($processedProjectIds);
+                // if(!in_array($project->getId(), $processedProjectIds)){
+                    
+                //     array_push($processedProjectIds, $project->getId());
+                //     $budgetType           = Utils::getProjectBudgetType($project);
+                //     if($budgetType != null){
+                //         $this->executeCalculateBudgetCommand($project);
+
+                //         if($budgetType == ProjectSubscriber::PROJECT_RECURRING_BUDGET_TYPE_MONEY){ 
+                //             $projectBudget          = $project->getBudget();  
+                //             $budgetRecurringValue = $project
+                //             ->getMetaField(ProjectSubscriber::RECURRING_MONEY_BUDGET_META_FIELD)
+                //             ->getValue();
+
+                //             $interValType = $project
+                //             ->getMetaField(ProjectSubscriber::RECURRING_BUDGET_INTERVAL_META_FIELD)
+                //             ->getValue();
+
+                //             $budgetData             = $this->getBudgetEntryByProject($project);
+                //             $spentOnRunningTaskSpent = $this->calculateRunningTasksSpentByProjectId($project);
+                //             $this->io->writeln("Project Cost On Running Tasks : ". $spentOnRunningTaskSpent);
+                //             if($budgetData){
+                //                 $this->io->writeln("budgetData : ". $budgetData->getBudgetAvailable());
+                //                 $availableBudgetOnDb    = $budgetData->getBudgetAvailable(); 
+                //                 $spentOnRunningTaskSpent = $this->calculateRunningTasksSpentByProjectId($project);
+                //                 $this->io->writeln("Project Cost On Running Tasks : ". $spentOnRunningTaskSpent);
+                //                 if($availableBudgetOnDb <= $spentOnRunningTaskSpent){
+                //                     $this->time_sheet_service->stopTimesheet($timesheet, false);
+                //                     $this->executeCalculateBudgetCommand($project);
+                //                 }
+
+                //             }
+
+                //         }
+                //         else{ 
+                            
+                //         }
+                //     }
+                // }
+                // $consoleOutput = $project->getId()."# <info>".$timesheet->getUser()->getDisplayName() ." => " . $project->getName(). " => " .  $timesheet->getDescription()."</info>";
+                // $this->io->writeln($consoleOutput);
+            } 
             
         } catch (\Throwable $th) {
             $this->io->writeln("Exception thrown in ". $th->getFile() ." on line ". $th->getLine().": [Code ".$th->getCode()."]".  $th->getMessage()); 
@@ -211,15 +223,17 @@ class TerminateActiveTrack extends Command
         return $results = $qb->getQuery()->getOneOrNullResult();
     }
 
-    private function getProjectBudgetData(array $projectIds){
+    private function getProjectBudgetData($projectId){ 
+        
         $query = new ProjectQuery();        
-        $budgetData     = $this->getBudgetDataForProjectList($query, $projectIds);
+        $budgetData     = $this->getBudgetDataForProjectList($query, $projectId);
         $projectIds     = \array_column($budgetData, 'id');
         $projectBudgets = [];
-        $projects       = [];
+        $returnData       = [];
 
         foreach ($budgetData as $entry) {
             $project = $this->projectRepository->find($entry['id']);
+            // $this->logger->info("Hello");
 
             if (empty($project)) {
                 continue;
@@ -276,12 +290,13 @@ class TerminateActiveTrack extends Command
             $entry['hasRecurringBudget']   = $hasRecurringBudget;
 
             $projectBudgets[$entry['id']] = $entry; 
+            $returnData = $entry;
         }
 
-        return $projectBudgets;
+        return $returnData;
     }
 
-    public function getBudgetDataForProjectList(ProjectQuery $query, array $projectIds)
+    public function getBudgetDataForProjectList(ProjectQuery $query, $projectId)
     {
         // SELECT
         $sql = "SELECT p.`id`, record.`record_duration`, record.`record_rate`";
@@ -311,7 +326,7 @@ class TerminateActiveTrack extends Command
         $where = [
             'p.`visible` = 1',
             'c.`visible` = 1', 
-            'p.`id` = '.$projectIds
+            'p.`id` = '.$projectId
         ];
 
         if ($query->hasCustomers()) {
@@ -349,55 +364,6 @@ class TerminateActiveTrack extends Command
 
         if (!empty($having)) {
             $sql .= " HAVING ".\implode(' AND ', $having);
-        }
-
-        // ORDER
-        $orderFields    = [];
-        $orderDirection = $query->getOrder();
-
-        switch ($query->getOrderBy()) {
-            case 'budgetRecurring':
-                $orderFields[] = '`time_budget_recurring` '.$orderDirection;
-                $orderFields[] = '`money_budget_recurring` '.$orderDirection;
-                break;
-
-            case 'budgetTotal':
-                $orderFields[] = 'p.`time_budget` '.$orderDirection;
-                $orderFields[] = 'p.`budget` '.$orderDirection;
-                $orderFields[] = '`time_budget_left` '.$orderDirection;
-                $orderFields[] = '`budget_left` '.$orderDirection;
-                break;
-
-            case 'budgetAvailable':
-                $orderFields[] = '`time_budget_left` '.$orderDirection;
-                $orderFields[] = '`budget_left` '.$orderDirection;
-                $orderFields[] = '`time_budget_recurring` '.$orderDirection;
-                $orderFields[] = '`money_budget_recurring` '.$orderDirection;
-                break;
-
-            case 'project':
-                $orderFields[] = 'p.`name` '.$orderDirection;
-                break;
-
-            case 'customer':
-                $orderFields[] = 'c.`name` '.$orderDirection;
-                break;
-
-            case 'projectTeam':
-                $orderFields[] = '`project_team` '.$orderDirection;
-                $orderFields[] = '`customer_team` '.$orderDirection;
-                break;
-
-            case 'default':
-            case 'sort.default':
-            default:
-                $orderFields[] = '`time_budget_left` DESC';
-                $orderFields[] = '`budget_left` DESC';
-                break;
-        }
-
-        if (!empty($orderFields)) {
-            $sql .= " ORDER BY ".\implode(',', $orderFields);
         } 
 
         $stmt          = $this->entityManager->getConnection()->prepare($sql);
