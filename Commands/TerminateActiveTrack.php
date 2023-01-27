@@ -83,17 +83,17 @@ class TerminateActiveTrack extends Command
                     continue;
                 }
                 $projectBudget = $this->getProjectBudgetData($project->getId());
-                $this->io->writeln(json_encode($projectBudget));
+                // $this->io->writeln(json_encode($projectBudget));
+                
                 if(isset($projectBudget)){
-                    $spentOnRunningTaskSpent = $this->calculateRunningTasksSpentByProjectId($project);
-                    // $this->io->writeln("Cost: ".$spentOnRunningTaskSpent);
-                    if($projectBudget['hasRecurringBudget'] == false){
-                        $totalBudgetLeft = $projectBudget['budget_left'] - $spentOnRunningTaskSpent;
-                        if($totalBudgetLeft >= 0){
-                            $this->time_sheet_service->stopTimesheet($timesheet, false);
-                        }
+                    $spentOnRunningTaskSpent = $this->calculateRunningTasksSpentByProjectId($project); 
+                    $totalBudgetLeft = $projectBudget['budget_left'] - $spentOnRunningTaskSpent;
+                    if($totalBudgetLeft >= 0){
+                        $this->time_sheet_service->stopTimesheet($timesheet);
+                        $this->io->writeln(json_encode($timesheet->getProject()->getName()));
                     }
-                    else{
+
+                    if($projectBudget['hasRecurringBudget'] == true){
                         $interValField = $project
                             ->getMetaField(ProjectSubscriber::RECURRING_BUDGET_INTERVAL_META_FIELD);
                         if($interValField){
@@ -101,13 +101,30 @@ class TerminateActiveTrack extends Command
                             $nextIntervalField = $project
                             ->getMetaField(ProjectSubscriber::RECURRING_BUDGET_NEXT_INTERVAL_BEGIN_DATE_META_FIELD);
                             if($nextIntervalField){
-                                $nextInterValDate = $nextIntervalField->getValue();
+                                $nextInterValDate = $nextIntervalField->getValue(); 
                                 if($nextInterValDate){
-                                    $previousInterValData = Carbon::parse($date)->format('Y-m-d');
+                                    $years = isset($intervalValue[0][0]) ? $intervalValue[0][0] : 0;
+                                    $months = isset($intervalValue[0][1]) ? $intervalValue[0][1] : 0;
+                                    $days = isset($intervalValue[0][2]) ? $intervalValue[0][2] : 0;
+                                    
+                                    $effectiveDate = date('Y-m-d', strtotime("-".$years." years", strtotime($nextInterValDate))); 
+                                    $effectiveDate = date('Y-m-d', strtotime("-".$months." months", strtotime($effectiveDate))); 
+                                    $previousDate = date('Y-m-d', strtotime("-".$days." days", strtotime($effectiveDate)));  
+                                    // $this->io->writeln("nextInterValDate: ".$previousDate); 
+
+                                    $entriesInBetweenCurrentInterVal = $this->getEntriesByProjectInInterVal($project, $previousDate);
+                                    $oldTotal = 0;
+                                    foreach($entriesInBetweenCurrentInterVal as $oldRecord){
+                                        $oldTotal += $oldRecord->getRate();
+                                        $totalSpent = $oldTotal + $spentOnRunningTaskSpent;   
+                                    }
+                                    if(($totalSpent - $projectBudget['budgetRecurringValue']) <= 0){
+                                        $this->time_sheet_service->stopTimesheet($timesheet); 
+                                    }
                                 }
                             }
                         }
-                    }
+                    } 
                 }
                 // if(!in_array($project->getId(), $processedProjectIds)){
                     
@@ -200,6 +217,34 @@ class TerminateActiveTrack extends Command
             ->from(Timesheet::class, 't')
             ->andWhere($qb->expr()->isNotNull('t.begin'))
             ->andWhere($qb->expr()->isNull('t.end'))
+            ->orderBy('t.begin', 'DESC');
+
+        if (null !== $project) {
+            $qb->andWhere('t.project = :project');
+            $qb->setParameter('project', $project);
+        }
+
+        return $this->getHydratedTimeSheetResultsByQuery($qb, false);
+    }
+
+    private function getEntriesByProjectInInterVal(Project $project = null, $startDate)
+    {
+
+        $toDate = new \DateTime('now'); // Have for example 2013-06-10 09:53:21
+        $toDate->setTime(11, 59, 59); // Modify to 2013-06-10 00:00:00, beginning of the day
+
+        $fromDate = new \DateTime($startDate);
+        $fromDate->setTime(0, 0, 0); // Have for example 2013-06-10 09:53:21
+        // $toDate->setTime(0, 0, 0); // Modify to 2013-06-10 00:00:00, beginning of the day
+
+        $qb = $this->entityManager->createQueryBuilder();
+
+        $qb->select('t')
+            ->from(Timesheet::class, 't') 
+            ->where('t.begin >= :fromDate')
+            ->andWhere('t.begin < :toDate')
+            ->setParameter('fromDate', $fromDate)
+            ->setParameter('toDate', $toDate)
             ->orderBy('t.begin', 'DESC');
 
         if (null !== $project) {
