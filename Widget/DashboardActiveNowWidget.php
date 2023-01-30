@@ -70,6 +70,7 @@ class DashboardActiveNowWidget extends SimpleWidget implements UserWidget
 
     public function getTemplateName(): string
     {
+        // return '@LhgTrackerBundle/Resources/views/widget.html.twig';
         return '@Demo/widget.html.twig';
     }
 }
