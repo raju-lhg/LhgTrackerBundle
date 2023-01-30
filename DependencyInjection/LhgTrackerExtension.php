@@ -21,16 +21,16 @@ class LhgTrackerExtension extends Extension
         // $loader->load('twig.yaml');
     }
 
-    // public function prepend(ContainerBuilder $container): void
-    // {
-    //     $yamlParser = new Parser();
+    public function prepend(ContainerBuilder $container): void
+    {
+        $yamlParser = new Parser();
 
-    //     // load the entity serialization config (mainly for the API)
-    //     $serializerConfig = file_get_contents(__DIR__ . '/../Resources/config/jms_serializer.yaml');
-    //     if ($serializerConfig === false) {
-    //         throw new \Exception('Could not read serializer configuration');
-    //     }
-    //     $config = $yamlParser->parse($serializerConfig);
-    //     $container->prependExtensionConfig('jms_serializer', $config['jms_serializer']); 
-    // }
+        // load the entity serialization config (mainly for the API)
+        $serializerConfig = file_get_contents(__DIR__ . '/../Resources/config/jms_serializer.yaml');
+        if ($serializerConfig === false) {
+            throw new \Exception('Could not read serializer configuration');
+        }
+        $config = $yamlParser->parse($serializerConfig);
+        $container->prependExtensionConfig('jms_serializer', $config['jms_serializer']); 
+    }
 }
