@@ -15,6 +15,12 @@ use App\Repository\Query\UserQuery;
 use App\Repository\UserRepository;
 use App\Widget\Type\SimpleWidget;
 use App\Widget\Type\UserWidget;
+use App\Repository\TimesheetRepository;
+use Doctrine\ORM\EntityManagerInterface;
+use App\Entity\Project;
+use App\Repository\Loader\TimesheetLoader;
+use Doctrine\ORM\QueryBuilder as ORMQueryBuilder;
+use App\Entity\Timesheet;
 
 class DashboardActiveNowWidget extends SimpleWidget implements UserWidget
 {
@@ -22,10 +28,18 @@ class DashboardActiveNowWidget extends SimpleWidget implements UserWidget
      * @var UserRepository
      */
     private $repository;
+    private $time_sheet_repository;
+    private $entityManager;
 
-    public function __construct(UserRepository $repository)
+    public function __construct(
+        TimesheetRepository $time_sheet_repository,
+        UserRepository $repository,
+        EntityManagerInterface $entityManager, 
+        )
     {
         $this->repository = $repository;
+        $this->entityManager = $entityManager;
+        $this->time_sheet_repository = $time_sheet_repository;
 
         $this->setId('DashboardActiveNowWidget');
         $this->setTitle('Active Now');
@@ -55,22 +69,53 @@ class DashboardActiveNowWidget extends SimpleWidget implements UserWidget
     {
         $options = $this->getOptions($options);
 
-        /** @var User $user */
-        $user = $options['user'];
+        $activeEntries = $this->getActiveEntriesByProject();
 
-        $query = new UserQuery();
-        $amount = $this->repository->countUsersForQuery($query);
-        $query->setPageSize(8);
+        $userIds = [];
+        foreach($activeEntries as $timesheet){
+            array_push($userIds, $timesheet->getUser()->getId());
+        }
+
+        // $users = $this->repository->findByIds($userIds);
 
         return [
-            'amount' => $amount,
-            'users' => $this->repository->getPagerfantaForQuery($query)
-        ];
+            'amount' => sizeof($userIds),
+            // 'users' => $users,
+            'timesheets' => $activeEntries
+        ]; 
     }
 
     public function getTemplateName(): string
     {
         // return '@LhgTrackerBundle/Resources/views/widget.html.twig';
         return '@LhgTracker/widget.html.twig';
+    }
+
+    private function getActiveEntriesByProject(Project $project = null)
+    {
+        $qb = $this->entityManager->createQueryBuilder();
+
+        $qb->select('t')
+            ->from(Timesheet::class, 't')
+            ->andWhere($qb->expr()->isNotNull('t.begin'))
+            ->andWhere($qb->expr()->isNull('t.end'))
+            ->orderBy('t.begin', 'DESC');
+
+        if (null !== $project) {
+            $qb->andWhere('t.project = :project');
+            $qb->setParameter('project', $project);
+        }
+
+        return $this->getHydratedTimeSheetResultsByQuery($qb, false);
+    }
+
+    protected function getHydratedTimeSheetResultsByQuery(ORMQueryBuilder $qb, bool $fullyHydrated = false): iterable
+    {
+        $results = $qb->getQuery()->getResult();
+
+        $loader = new TimesheetLoader($qb->getEntityManager(), $fullyHydrated);
+        $loader->loadResults($results);
+
+        return $results;
     }
 }

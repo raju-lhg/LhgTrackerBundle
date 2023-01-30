@@ -34,7 +34,7 @@ class DashboardActiveNowWidgetSubscriber implements EventSubscriberInterface
     public function onDashboardEvent(DashboardEvent $event): void
     {
         $section = new CompoundRow();
-        $section->setTitle('What a great crowd in LhgTracker!');
+        $section->setTitle('What a great crowd at LhgTracker!');
         $section->setOrder(19);
 
         $section->addWidget($this->widget);
