@@ -39,12 +39,12 @@ class MenuSubscriber implements EventSubscriberInterface
         //     return;
         // }
 
-        $menu = $event->getSystemMenu();
+        // $menu = $event->getSystemMenu();
 
-        if ($auth->isGranted('active_now_lhg_tracker')) {
-            $menu->addChild(
-                new MenuItemModel('lhg-tracker', 'Active Now', 'lhg-tracker', [], 'as fa-clock') 
-            );
-        }
+        // if ($auth->isGranted('active_now_lhg_tracker')) {
+        //     $menu->addChild(
+        //         new MenuItemModel('lhg-tracker', 'Active Now', 'lhg-tracker', [], 'as fa-clock') 
+        //     );
+        // }
     }
 }

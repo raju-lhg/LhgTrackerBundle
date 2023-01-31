@@ -14,14 +14,17 @@ use App\Event\DashboardEvent;
 use App\Widget\Type\CompoundRow;
 use KimaiPlugin\LhgTrackerBundle\Widget\DashboardActiveNowWidget;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+use Symfony\Component\Security\Core\Authorization\AuthorizationCheckerInterface;
 
 class DashboardActiveNowWidgetSubscriber implements EventSubscriberInterface
 {
     private $widget;
+    private $security;
 
-    public function __construct(DashboardActiveNowWidget $widget)
+    public function __construct(DashboardActiveNowWidget $widget, AuthorizationCheckerInterface $security)
     {
         $this->widget = $widget;
+        $this->security = $security;
     }
 
     public static function getSubscribedEvents(): array
@@ -33,12 +36,16 @@ class DashboardActiveNowWidgetSubscriber implements EventSubscriberInterface
 
     public function onDashboardEvent(DashboardEvent $event): void
     {
-        $section = new CompoundRow();
-        $section->setTitle('What a great crowd at LhgTracker!');
-        $section->setOrder(19);
+        $auth = $this->security;
 
-        $section->addWidget($this->widget);
+        if ($auth->isGranted('active_now_lhg_tracker')) {
+            $section = new CompoundRow();
+            $section->setTitle('What a great crowd at LhgTracker!');
+            $section->setOrder(19);
 
-        $event->addSection($section);
+            $section->addWidget($this->widget);
+
+            $event->addSection($section);
+        } 
     }
 }
