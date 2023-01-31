@@ -38,10 +38,10 @@ class LhgTrackerExtension extends Extension implements PrependExtensionInterface
             'permissions' => [
                 'roles' => [
                     'ROLE_SUPER_ADMIN' => [
-                        'active_now_lhg_tracker'
+                        'active_now_widget_lhg_tracker'
                     ],
                     'ROLE_ADMIN' => [
-                        'active_now_lhg_tracker'
+                        'active_now_widget_lhg_tracker'
                     ],
                 ],
             ],

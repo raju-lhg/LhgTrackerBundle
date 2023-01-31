@@ -41,7 +41,7 @@ class MenuSubscriber implements EventSubscriberInterface
 
         // $menu = $event->getSystemMenu();
 
-        // if ($auth->isGranted('active_now_lhg_tracker')) {
+        // if ($auth->isGranted('active_now_widget_lhg_tracker')) {
         //     $menu->addChild(
         //         new MenuItemModel('lhg-tracker', 'Active Now', 'lhg-tracker', [], 'as fa-clock') 
         //     );
