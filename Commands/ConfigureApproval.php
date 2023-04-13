@@ -49,8 +49,17 @@ class ConfigureApproval extends Command
 
     private function set_first_weekday_for_all_user(User $user): void{
         $preferenceEntity = new UserPreference();
-         if($this->check_if_value_to_user_preference_exists($user, $preferenceEntity, "first_weekday")){
-            return;
+        // if($this->check_if_value_to_user_preference_exists($user, $preferenceEntity, "first_weekday")){
+        //     return;
+        // }
+
+        $existingField = $this->entityManager->getRepository(get_class($preferenceEntity))->findOneBy([
+            "name" => 'first_weekday', 
+            "user" => $user
+        ]);
+
+        if($existingField){
+            $preferenceEntity = $existingField;
         }
 
         $preferenceEntity->setUser($user);
