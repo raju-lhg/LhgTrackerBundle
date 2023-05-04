@@ -14,10 +14,10 @@ Make sure your server has OpenSSL installed. If not install it by ``sudo apt-get
 
     ``crontab -e``
 
-4. Add a new line to the crontab file that specifies when the script should run. For example, to run the script once a month at midnight, add the following line: 
+4. Add a new line to the crontab file that specifies when the script should run. For example, to run the script on first day of june every year at midnight, add the following line: 
 
-    ``0 0 1 * * /path/to/renew-ssl.sh sub.domain.com``
+    ``0 0 1 6 * /path/to/renew-ssl.sh sub.domain.com``
 
     Here replace *sub.domain.com* by your dimain name. For Kimai Time Tracker it would be: 
     
-    ``0 0 1 * * path/to/kimai/var/plugins/LhgTrackerBundle/scripts/renew-ssl.sh time.cloud.lhgdev.com``
+    ``0 0 1 6 * path/to/kimai/var/plugins/LhgTrackerBundle/scripts/renew-ssl.sh time.cloud.lhgdev.com``
