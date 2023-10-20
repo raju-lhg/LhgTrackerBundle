@@ -40,7 +40,7 @@ class DashboardActiveNowWidgetSubscriber implements EventSubscriberInterface
 
         if ($auth->isGranted('active_now_widget_lhg_tracker')) {
             $section = new CompoundRow();
-            $section->setTitle('What a great crowd at LhgTracker!');
+            $section->setTitle('What a great looking team at LHG!');
             $section->setOrder(19);
 
             $section->addWidget($this->widget);
